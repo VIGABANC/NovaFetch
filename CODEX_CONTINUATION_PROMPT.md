@@ -12,23 +12,20 @@ Act as the **lead Android/Kotlin engineer, GeckoView integration specialist, med
 
 ## 2. GitHub repository / source initialization — critical
 
-- Intended remote: `https://github.com/VIGABANC/NovaFetch`.
-- The GitHub repository was **PUBLIC and EMPTY at last verified check on 2026-10-18**. Re-check before acting; do not assume it already contains project files.
-- The original request specified **PRIVATE** visibility. **Do not publish NovaFetch source to a PUBLIC repository without an unambiguous authorization to do so.** If still public, work locally/on an isolated branch and produce a ready-to-push commit/bundle; request the one necessary privacy decision before pushing.
-- The actual project is present in the supplied NovaFetch ZIP or Git bundle, not in the empty remote. **If the source has not been attached/imported, STOP and report the missing source; do not invent an equivalent application.**
-- Historical local repository `main` and `feature/generic-media-detection` pointed to commit `f88b7b0` at the last handoff. This continuation prompt is a new documentation commit on a separate `docs/codex-continuation` branch; inspect the actual Git history rather than assuming a specific HEAD.
-- Keep history. Prefer a feature branch such as `codex/android-runtime-hls`; never force-push, delete or rewrite history. Do not overwrite an existing remote branch. Open a pull request when a remote, privacy and CI gate are ready.
-- To import source from a bundle on a machine with Git:
+- Official project source: **`https://github.com/VIGABANC/NovaFetch`** (user explicitly authorized **PUBLIC** publication on 2026-10-18).
+- Begin by cloning the repository, not recreating it and not waiting for ZIP attachments:
 
 ```bash
-git clone /path/to/novafetch-codex-handoff.bundle NovaFetch
+git clone https://github.com/VIGABANC/NovaFetch.git
 cd NovaFetch
-git switch main
-# Check repo state, then create a feature branch:
-git switch -c codex/android-runtime-hls
+git status --short
+git switch -c codex/android-build-foundation
 ```
 
-If starting from the ZIP, extract it into a normal working directory; the ZIP may not include `.git`, so use the Git bundle for history whenever possible.
+- **Inspect and run tests before edits.** Read all existing project files, code and specs first.
+- Work in a feature branch; keep the remote `main` intact until tests and review pass. Do not force-push.
+- If `git clone` fails, report the actual authentication/network error; do not reconstruct the source from prose.
+- Codex should use `CODEX_REMOTE_BOOTSTRAP.md` for environment setup and milestone order; this document is the longer technical implementation specification.
 
 ## 3. Read these exact project documents FIRST
 

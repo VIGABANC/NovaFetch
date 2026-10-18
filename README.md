@@ -57,7 +57,7 @@ Only download content you have the right to save and sources that allow this use
 
 ## Codex workflow
 
-Once pushed to a GitHub repository, open that repository in Codex and implement one tested task at a time from `docs/superpowers/plans/`. Use a feature branch and a pull request for changes. Keep the Android runtime gate open until an SDK-backed build and device tests have actually passed.
+Clone https://github.com/VIGABANC/NovaFetch.git and open that repository in Codex and implement one tested task at a time from `docs/superpowers/plans/`. Use a feature branch and a pull request for changes. Keep the Android runtime gate open until an SDK-backed build and device tests have actually passed.
 
 ## License
 

@@ -11,5 +11,5 @@
 - Portable smoke commands include `node --test tools/media-detector-tests/*.test.cjs`, `python3 -m unittest discover -s tools/test-media-server -p 'test*.py' -q`, and `bash tools/run-hls-parser-smoke.sh`.
 - Download only user-authorized content. No DRM/access-control/paywall bypass, token extraction, remote executable site adapters or proprietary app copying.
 - Protect credentials and session data. No `MANAGE_EXTERNAL_STORAGE`. Room for jobs, private temp files, MediaStore for finalized media.
-- GitHub target: `VIGABANC/NovaFetch`. Last verified public and empty; original user preference Private. Do not push publicly unless explicitly authorized. Keep history and use feature branch + PR.
+- GitHub source: `https://github.com/VIGABANC/NovaFetch` (public publication explicitly authorized). Clone repository; keep existing main intact, use a feature branch and PR; never force-push.
 - Update `docs/implementation/STATUS.md` with actual verified results and blockers after milestones. Do not claim that tests ran if they did not.
