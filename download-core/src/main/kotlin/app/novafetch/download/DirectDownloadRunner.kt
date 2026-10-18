@@ -4,6 +4,9 @@ import app.novafetch.common.DownloadId
 import app.novafetch.common.DownloadState
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.CancellationException
+
+const val MAX_DIRECT_TRANSFER_RETRIES = 4
 
 class DirectDownloadRunner(
     private val repository: DownloadRepository,
@@ -31,22 +34,64 @@ class DirectDownloadRunner(
         repository.update(snapshot)
 
         val resumeOffset = safeResumeOffset(snapshot, destination)
-        val result = transferEngine.transfer(
-            TransferRequest(
-                url = plan.sourceUrl,
-                destination = destination,
-                resumeOffset = resumeOffset,
-                etag = snapshot.etag,
-                lastModified = snapshot.lastModified,
-            ),
-        ) { downloadedBytes ->
-            snapshot = snapshot.copy(
-                state = DownloadState.DOWNLOADING,
-                downloadedBytes = downloadedBytes,
-                tempPath = destination.toString(),
-            )
-            repository.update(snapshot)
+        val result = try {
+            transferEngine.transfer(
+                TransferRequest(
+                    url = plan.sourceUrl,
+                    destination = destination,
+                    resumeOffset = resumeOffset,
+                    etag = snapshot.etag,
+                    lastModified = snapshot.lastModified,
+                ),
+            ) { downloadedBytes ->
+                val persisted = requireNotNull(repository.get(id)) { "download disappeared: ${id.value}" }
+                if (persisted.state == DownloadState.PAUSED) {
+                    snapshot = persisted.copy(
+                        downloadedBytes = downloadedBytes,
+                        tempPath = destination.toString(),
+                    )
+                    repository.update(snapshot)
+                }
+                if (persisted.state != DownloadState.DOWNLOADING && persisted.state != DownloadState.PAUSED) {
+                    throw CancellationException("download execution is no longer active")
+                }
+                if (persisted.state == DownloadState.PAUSED) {
+                    throw CancellationException("download paused")
+                }
+                snapshot = persisted.copy(
+                    downloadedBytes = downloadedBytes,
+                    tempPath = destination.toString(),
+                )
+                repository.update(snapshot)
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            val latest = requireNotNull(repository.get(id)) { "download disappeared: ${id.value}" }
+            if (latest.state == DownloadState.PAUSED || latest.state == DownloadState.CANCELLED) {
+                throw CancellationException("download was stopped")
+            }
+            val retries = latest.retryCount + 1
+            val target = if (retries <= MAX_DIRECT_TRANSFER_RETRIES) {
+                DownloadState.RETRY_PENDING
+            } else {
+                DownloadState.FAILED
+            }
+            if (stateMachine.canTransition(latest.state, target)) {
+                repository.update(
+                    latest.copy(
+                        state = target,
+                        retryCount = retries,
+                        failureCode = if (target == DownloadState.FAILED) "TRANSFER_RETRIES_EXHAUSTED" else null,
+                    ),
+                )
+            }
+            throw failure
         }
+
+        val latest = requireNotNull(repository.get(id)) { "download disappeared: ${id.value}" }
+        if (latest.state != DownloadState.DOWNLOADING) return latest
+        snapshot = latest
 
         snapshot = when (result) {
             is TransferResult.Completed -> transition(snapshot, DownloadState.VERIFYING).copy(

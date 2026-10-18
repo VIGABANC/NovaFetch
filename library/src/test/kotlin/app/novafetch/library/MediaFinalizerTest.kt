@@ -115,6 +115,12 @@ fun main() {
     check(libraryItem.fileSize == 4096L)
     check(libraryItem.createdAtEpochMs == 1_234L)
 
+    val repeated = runSuspendFinalizer { finalizer.finalize(DownloadId("good"), metadata) }
+    check(repeated.state == DownloadState.COMPLETED)
+    check(publisher.prepareCalls == 1)
+    check(publisher.finishCalls == 1)
+    check(library.items.size == 1)
+
     val badFile = dir.resolve("bad.part")
     Files.write(badFile, ByteArray(64))
     val badRepo = FinalizerRepository(snapshotFor("bad", badFile, totalBytes = 128))

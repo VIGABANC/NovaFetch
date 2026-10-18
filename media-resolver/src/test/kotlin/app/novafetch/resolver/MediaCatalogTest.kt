@@ -14,6 +14,14 @@ fun testMediaCatalog() {
     val validator = CandidateValidator()
     val accepted = validator.validate(candidate("https://cdn.example/video.mp4"))
     check(accepted is ValidationResult.Accepted) { "valid video URL should be accepted" }
+    val missingFrameAndSize = validator.validate(
+        candidate("https://cdn.example/unknown.mp4").copy(frameUrl = null, estimatedBytes = null),
+    )
+    check(missingFrameAndSize is ValidationResult.Accepted) { "optional frame and size metadata may be absent" }
+    val invalidFrame = validator.validate(
+        candidate("https://cdn.example/video.mp4").copy(frameUrl = "file:///etc/passwd"),
+    )
+    check(invalidFrame is ValidationResult.Rejected) { "invalid frame URL should be rejected" }
 
     val catalog = MediaCatalog()
     catalog.upsert(accepted.value)

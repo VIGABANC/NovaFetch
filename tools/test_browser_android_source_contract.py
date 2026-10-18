@@ -30,6 +30,10 @@ class BrowserAndroidSourceContract(unittest.TestCase):
         build = (ROOT / 'tools/verify-android-build.sh').read_text()
         self.assertIn(':app:compileDebugAndroidTestKotlin', build)
 
+    def test_http_browser_and_direct_media_are_allowed(self):
+        manifest = (ROOT / 'app/src/main/AndroidManifest.xml').read_text()
+        self.assertIn('android:usesCleartextTraffic="true"', manifest)
+
     def test_manifest_sources_only_and_no_code_to_bypass_drm(self):
         manifest = json.loads((ROOT / 'browser-core/src/main/assets/extensions/media-detector/manifest.json').read_text())
         self.assertEqual(manifest['content_scripts'][0]['matches'], ['http://*/*', 'https://*/*'])

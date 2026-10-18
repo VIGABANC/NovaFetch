@@ -1,0 +1,90 @@
+name: Android CI
+
+on:
+  push:
+    branches: [main, codex/android-build-foundation]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Build, package, and test on Android 36
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android 36 SDK
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'platform-tools'
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up Python 3
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run portable and source-contract tests
+        run: |
+          node --test tools/media-detector-tests/*.test.cjs
+          python3 -m unittest discover -s tools -p 'test*.py' -q
+
+      - name: Build APK and compile instrumentation tests
+        run: bash tools/verify-android-build.sh
+
+      - name: Verify ABI APK outputs
+        run: python3 -m unittest tools/test_apk_abi_splits.py -v
+
+      - name: Upload ABI-specific debug APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: novafetch-debug-apks-${{ github.sha }}
+          path: |
+            app/build/outputs/apk/debug/app-armeabi-v7a-debug.apk
+            app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
+            app/build/outputs/apk/debug/app-x86_64-debug.apk
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - name: Run Android instrumentation on a hosted emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 4096M
+          heap-size: 512M
+          disable-animations: true
+          script: |
+            adb devices -l
+            bash tools/verify-android-runtime.sh

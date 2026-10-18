@@ -4,13 +4,22 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import app.novafetch.common.DownloadId
+import app.novafetch.common.DownloadState
+import app.novafetch.download.DownloadCoordinator
+import app.novafetch.download.DownloadPlan
+import app.novafetch.download.DownloadScheduler
+import app.novafetch.download.DownloadSnapshot
+import app.novafetch.download.DownloadStateMachine
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class NovaFetchDatabaseInstrumentedTest {
@@ -81,4 +90,66 @@ class NovaFetchDatabaseInstrumentedTest {
         assertNotNull(restored)
         assertEquals(media, restored)
     }
+
+    @Test
+    fun interruptedDownloadRecoversAfterDatabaseReopen() = runBlocking {
+        database.close()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val databaseName = "process-recovery-${System.nanoTime()}.db"
+        val partial = File(context.cacheDir, "process-recovery.part").apply {
+            writeBytes(byteArrayOf(1, 2, 3, 4))
+        }
+        val id = DownloadId("process-recovery-${System.nanoTime()}")
+        val expected = DownloadSnapshot(
+            id = id,
+            plan = DownloadPlan.DirectPlan(
+                "https://example.test/interrupted.mp4",
+                "video/mp4",
+                "interrupted.mp4",
+            ),
+            state = DownloadState.DOWNLOADING,
+            downloadedBytes = partial.length(),
+            totalBytes = 100L,
+            tempPath = partial.absolutePath,
+            etag = "\"stable-etag\"",
+            supportsResume = true,
+        )
+        val firstOpen = Room.databaseBuilder(context, NovaFetchDatabase::class.java, databaseName)
+            .allowMainThreadQueries()
+            .build()
+        val firstRepository = RoomDownloadRepository(firstOpen.downloadDao())
+        firstRepository.create(expected)
+        firstRepository.update(expected)
+        firstOpen.close()
+
+        val reopened = Room.databaseBuilder(context, NovaFetchDatabase::class.java, databaseName)
+            .allowMainThreadQueries()
+            .build()
+        try {
+            val repository = RoomDownloadRepository(reopened.downloadDao())
+            val restored = requireNotNull(repository.get(id))
+            assertEquals(DownloadState.DOWNLOADING, restored.state)
+            assertEquals(expected.downloadedBytes, restored.downloadedBytes)
+            assertEquals(expected.tempPath, restored.tempPath)
+            assertEquals(expected.etag, restored.etag)
+
+            val scheduler = RecoveryRecordingScheduler()
+            DownloadCoordinator(repository, scheduler, DownloadStateMachine()).recoverInterrupted()
+            val recovered = requireNotNull(repository.get(id))
+            assertEquals(DownloadState.CONNECTING, recovered.state)
+            assertEquals(expected.downloadedBytes, recovered.downloadedBytes)
+            assertTrue(id in scheduler.recoveryIds)
+        } finally {
+            reopened.close()
+            context.deleteDatabase(databaseName)
+            partial.delete()
+        }
+    }
+}
+
+private class RecoveryRecordingScheduler : DownloadScheduler {
+    val recoveryIds = mutableListOf<DownloadId>()
+    override suspend fun schedule(id: DownloadId) = Unit
+    override suspend fun scheduleRecovery(id: DownloadId) { recoveryIds += id }
+    override suspend fun cancel(id: DownloadId) = Unit
 }

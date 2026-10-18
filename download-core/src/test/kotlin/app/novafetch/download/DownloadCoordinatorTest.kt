@@ -3,6 +3,7 @@ package app.novafetch.download
 import app.novafetch.common.DownloadId
 import app.novafetch.common.DownloadState
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.coroutines.startCoroutine
@@ -22,7 +23,7 @@ private class FakeRepository(initial: List<DownloadSnapshot> = emptyList()) : Do
     override suspend fun get(id: DownloadId): DownloadSnapshot? = jobs[id]
     override suspend fun update(snapshot: DownloadSnapshot) { jobs[snapshot.id] = snapshot }
     override suspend fun unfinished(): List<DownloadSnapshot> = jobs.values.filter { !it.state.isTerminal }
-    override fun observe(id: DownloadId): Flow<DownloadSnapshot> = object : Flow<DownloadSnapshot> {}
+    override fun observe(id: DownloadId): Flow<DownloadSnapshot> = emptyFlow()
 }
 
 private class FakeScheduler : DownloadScheduler {

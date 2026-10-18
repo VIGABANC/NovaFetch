@@ -35,8 +35,10 @@ class BrowserSessionManager(context: Context) {
             "resource://android/assets/extensions/media-detector/",
             ExtensionMessageValidator.EXTENSION_ID,
         ).accept({ extension ->
-            detectorExtension = extension
-            sessions.forEach { (id, session) -> attach(id, session, extension) }
+            extension?.let { installed ->
+                detectorExtension = installed
+                sessions.forEach { (id, session) -> attach(id, session, installed) }
+            }
         }, { _ ->
             // The browser must remain usable even when detector extension installation fails.
         })

@@ -43,6 +43,27 @@ fun main() {
     check(!directResult.supportsResume)
     check(Files.readAllBytes(direct).contentEquals(expected))
 
+    // A mid-stream disconnect keeps a partial and can resume safely with the same ETag.
+    val interrupted = dir.resolve("interrupted.mp4")
+    val firstAttempt = runCatching {
+        runSuspend { engine.transfer(TransferRequest("$base/disconnect-once.mp4", interrupted)) { } }
+    }
+    check(firstAttempt.isFailure)
+    val interruptedBytes = Files.size(interrupted)
+    check(interruptedBytes in 1 until expected.size.toLong())
+    val recovered = runSuspend {
+        engine.transfer(
+            TransferRequest(
+                url = "$base/disconnect-once.mp4",
+                destination = interrupted,
+                resumeOffset = interruptedBytes,
+                etag = "\"fixture-v1\"",
+            ),
+        ) { }
+    }
+    check(recovered is TransferResult.Completed && recovered.resumed)
+    check(Files.readAllBytes(interrupted).contentEquals(expected))
+
     // Safe byte-range resume.
     val resume = dir.resolve("resume.mp4")
     val split = 10_000
@@ -60,6 +81,24 @@ fun main() {
     check(resumeResult is TransferResult.Completed && resumeResult.resumed && !resumeResult.restarted)
     check(resumeResult.supportsResume)
     check(Files.readAllBytes(resume).contentEquals(expected))
+
+    // A malformed 206 response must be rejected before appending any response bytes.
+    val malformedRange = dir.resolve("malformed-range.mp4")
+    Files.write(malformedRange, expected.copyOfRange(0, split))
+    val malformedResult = runCatching {
+        runSuspend {
+            engine.transfer(
+                TransferRequest(
+                    url = "$base/wrong-range.mp4",
+                    destination = malformedRange,
+                    resumeOffset = split.toLong(),
+                    etag = "\"fixture-v1\"",
+                ),
+            ) { }
+        }
+    }
+    check(malformedResult.isFailure)
+    check(Files.size(malformedRange) == split.toLong())
 
     // Server that ignores Range must safely restart, never append duplicate bytes.
     val noRange = dir.resolve("no-range.mp4")

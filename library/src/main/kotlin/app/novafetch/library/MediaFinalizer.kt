@@ -17,6 +17,7 @@ class MediaFinalizer(
 ) {
     suspend fun finalize(id: DownloadId, metadata: FinalMediaMetadata): DownloadSnapshot {
         var snapshot = requireNotNull(repository.get(id)) { "unknown download: ${id.value}" }
+        if (snapshot.state == DownloadState.COMPLETED) return snapshot
         val path = snapshot.tempPath?.let(Path::of)
             ?: return fail(snapshot, "TEMP_FILE_MISSING")
 

@@ -5,6 +5,7 @@
         android:allowBackup="false"
         android:label="NovaFetch"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
             android:name=".MainActivity"
