@@ -20,6 +20,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import app.novafetch.player.PlayerScreen
+import app.novafetch.browser.BrowserScreen
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.collectAsState
 
@@ -35,11 +36,11 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class RootTab { DOWNLOADS, LIBRARY }
+private enum class RootTab { BROWSER, DOWNLOADS, LIBRARY }
 
 @Composable
 private fun NovaFetchRoot(graph: AppGraph) {
-    var tab by remember { mutableStateOf(RootTab.DOWNLOADS) }
+    var tab by remember { mutableStateOf(RootTab.BROWSER) }
     var directUrl by remember { mutableStateOf("") }
     var playingUri by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -59,6 +60,12 @@ private fun NovaFetchRoot(graph: AppGraph) {
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
+                    selected = tab == RootTab.BROWSER,
+                    onClick = { tab = RootTab.BROWSER },
+                    icon = { Text("🌐") },
+                    label = { Text("Browser") },
+                )
+                NavigationBarItem(
                     selected = tab == RootTab.DOWNLOADS,
                     onClick = { tab = RootTab.DOWNLOADS },
                     icon = { Text("↓") },
@@ -75,6 +82,15 @@ private fun NovaFetchRoot(graph: AppGraph) {
     ) { padding ->
         Box(Modifier.padding(padding)) {
             when (tab) {
+                RootTab.BROWSER -> BrowserScreen(
+                    manager = graph.browserManager,
+                    onDownload = { plan ->
+                        scope.launch {
+                            runCatching { graph.coordinator.enqueue(plan) }
+                                .onFailure { error = it.message ?: "Unable to start download" }
+                        }
+                    },
+                )
                 RootTab.DOWNLOADS -> DownloadsScreen(
                     url = directUrl,
                     onUrlChange = { directUrl = it; error = null },

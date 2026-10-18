@@ -2,6 +2,7 @@ package app.novafetch
 
 import android.content.Context
 import android.os.Build
+import app.novafetch.browser.BrowserSessionManager
 import app.novafetch.common.DownloadId
 import app.novafetch.data.NovaFetchDatabaseFactory
 import app.novafetch.data.RoomDownloadListRepository
@@ -25,6 +26,7 @@ import app.novafetch.library.MediaStoreSharedMediaPublisher
 import java.net.URI
 
 class AppGraph(private val context: Context) {
+    val browserManager by lazy { BrowserSessionManager(context) }
     private val database = NovaFetchDatabaseFactory.create(context)
 
     val downloadRepository = RoomDownloadRepository(database.downloadDao())

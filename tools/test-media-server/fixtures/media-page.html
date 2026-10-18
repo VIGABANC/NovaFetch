@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>NovaFetch local media test</title></head>
+<body>
+<h1>NovaFetch detection test</h1>
+<video controls preload="metadata" width="320">
+  <source src="/playable.mp4" type="video/mp4">
+</video>
+<a href="/playable.mp4" download>Download playable sample MP4</a>
+<button type="button" id="inject" onclick="let a=document.createElement('video');a.src='/range.mp4';a.controls=true;document.body.appendChild(a)">Insert video dynamically</button>
+</body></html>

@@ -1,5 +1,6 @@
 [versions]
 agp = "9.4.0"
+geckoview = "158.0.20261007201254"
 kotlin = "2.4.20"
 coroutines = "1.11.0"
 room = "2.8.5"
@@ -22,6 +23,7 @@ room = { id = "androidx.room", version.ref = "room" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 
 [libraries]
+geckoview = { module = "org.mozilla.geckoview:geckoview", version.ref = "geckoview" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }

@@ -25,4 +25,8 @@ include(
     ":library",
     ":player",
     ":security",
+    ":browser-core",
+    ":browser-ui",
+    ":media-detection",
+    ":media-resolver",
 )

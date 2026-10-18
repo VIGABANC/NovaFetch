@@ -22,7 +22,20 @@ if ! adb get-state >/dev/null 2>&1; then
   exit 2
 fi
 
+# Browser E2E fixture: reachable as http://10.0.2.2:8765 on Android emulator.
+python3 tools/test-media-server/server.py >/tmp/novafetch-media-fixture.log 2>&1 &
+fixture_pid=$!
+trap 'kill "$fixture_pid" 2>/dev/null || true' EXIT
+sleep 1
+if ! kill -0 "$fixture_pid" 2>/dev/null; then
+  cat /tmp/novafetch-media-fixture.log >&2
+  echo "ERROR: media fixture server could not start" >&2
+  exit 2
+fi
+
 "${GRADLE[@]}" \
   :data:connectedDebugAndroidTest \
   :library:connectedDebugAndroidTest \
-  :download-android:connectedDebugAndroidTest
+  :download-android:connectedDebugAndroidTest \
+  :browser-core:connectedDebugAndroidTest \
+  :app:connectedDebugAndroidTest

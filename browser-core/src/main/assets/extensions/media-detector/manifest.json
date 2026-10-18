@@ -1,0 +1,21 @@
+{
+  "manifest_version": 2,
+  "name": "NovaFetch Local Media Detector",
+  "version": "0.1.0",
+  "description": "Finds public media candidates in the currently visited web page.",
+  "browser_specific_settings": {
+    "gecko": { "id": "media-detector@novafetch.app" }
+  },
+  "permissions": [
+    "geckoViewAddons",
+    "nativeMessaging",
+    "nativeMessagingFromContent",
+    "<all_urls>"
+  ],
+  "content_scripts": [{
+    "matches": ["http://*/*", "https://*/*"],
+    "js": ["scan-media.js", "content.js"],
+    "all_frames": true,
+    "run_at": "document_idle"
+  }]
+}

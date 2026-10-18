@@ -29,6 +29,13 @@ class MediaServerTest(unittest.TestCase):
         conn.close()
         return result
 
+    def test_browser_media_fixture_page(self):
+        status, headers, body = self.request("/media-page.html")
+        self.assertEqual(200, status)
+        self.assertIn("text/html", headers.get("Content-Type", ""))
+        self.assertIn(b'<video', body)
+        self.assertIn(b'/playable.mp4', body)
+
     def test_range_endpoint_returns_partial_content(self):
         status, headers, body = self.request("/range.mp4", {"Range": "bytes=0-9"})
         self.assertEqual(206, status)

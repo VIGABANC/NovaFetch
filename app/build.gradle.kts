@@ -15,10 +15,16 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0-dev"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 }
 
 dependencies {
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.runner)
+    implementation(project(":media-resolver"))
+    implementation(project(":media-detection"))
     implementation(project(":common"))
     implementation(project(":data"))
     implementation(project(":download-core"))
@@ -26,6 +32,8 @@ dependencies {
     implementation(project(":library"))
     implementation(project(":player"))
     implementation(project(":security"))
+    implementation(project(":browser-core"))
+    implementation(project(":browser-ui"))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)

@@ -14,6 +14,8 @@ fi
 
 "${GRADLE[@]}" \
   :app:assembleDebug \
+  :app:compileDebugAndroidTestKotlin \
   :data:compileDebugAndroidTestKotlin \
   :library:compileDebugAndroidTestKotlin \
-  :download-android:compileDebugAndroidTestKotlin
+  :download-android:compileDebugAndroidTestKotlin \
+  :browser-core:compileDebugAndroidTestKotlin

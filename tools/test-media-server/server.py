@@ -20,6 +20,15 @@ class MediaRequestHandler(BaseHTTPRequestHandler):
         parsed = urlsplit(self.path)
         path = parsed.path
 
+        if path == "/media-page.html":
+            data = Path(__file__).with_name("fixtures").joinpath("media-page.html").read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
         if path == "/control/etag":
             value = parse_qs(parsed.query).get("value", [None])[0]
             if not value:
