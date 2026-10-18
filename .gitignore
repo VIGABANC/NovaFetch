@@ -10,3 +10,23 @@ __pycache__/
 *.pyc
 
 .superpowers/
+
+# credentials, signing materials, and local machine config
+*.jks
+*.keystore
+*.p12
+*.pfx
+.env
+.env.*
+!.env.example
+**/google-services.json
+*.key
+*.pem
+
+# packaged output and temporary test artifacts
+*.apk
+*.aab
+*.hprof
+*.log
+*.zip
+*.bundle
