@@ -26,6 +26,7 @@ private class FakeDownloadDao : DownloadDao {
     override suspend fun upsertPart(part: DownloadPartEntity) { parts[part.id] = part }
     override suspend fun getJob(id: String): DownloadJobEntity? = jobs[id]
     override fun observeJob(id: String): Flow<DownloadJobEntity?> = object : Flow<DownloadJobEntity?> {}
+    override fun observeAllJobs(): Flow<List<DownloadJobEntity>> = object : Flow<List<DownloadJobEntity>> {}
     override suspend fun unfinishedJobs(): List<DownloadJobEntity> = jobs.values.filter {
         it.state !in setOf("COMPLETED", "FAILED", "CANCELLED")
     }
