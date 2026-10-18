@@ -7,7 +7,20 @@ android {
     namespace = "app.novafetch"
     compileSdk = 36
 
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86_64")
+            isUniversalApk = true
+        }
+    }
+
     buildFeatures { compose = true }
+
+    sourceSets.getByName("androidTest").assets.directories.add(
+        rootProject.file("tools/test-media-server/fixtures").absolutePath,
+    )
 
     defaultConfig {
         applicationId = "app.novafetch"
@@ -23,6 +36,9 @@ dependencies {
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.media3.exoplayer)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
     implementation(project(":media-resolver"))
     implementation(project(":media-detection"))
     implementation(project(":common"))

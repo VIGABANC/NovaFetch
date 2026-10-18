@@ -5,6 +5,7 @@ import app.novafetch.common.DownloadState
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CancellationException
+import java.io.IOException
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.coroutines.startCoroutine
@@ -145,6 +146,37 @@ fun main() {
     check(pausedRepo.current.state == DownloadState.PAUSED)
     check(pausedRepo.current.downloadedBytes == 4L)
     check(Files.size(pausedPath) == pausedRepo.current.downloadedBytes)
+
+    // An interrupted stream must checkpoint and move into a bounded retry state.
+    val interruptedId = DownloadId("runner-interrupted-job")
+    val interruptedRepo = RunnerRepository(
+        DownloadSnapshot(
+            id = interruptedId,
+            plan = DownloadPlan.DirectPlan("https://example.invalid/file.mp4", "video/mp4", "file.mp4"),
+            state = DownloadState.QUEUED,
+        ),
+    )
+    val interruptedPath = tempDir.resolve("interrupted-file.mp4.part")
+    val interruptedEngine = object : TransferEngine {
+        override suspend fun transfer(
+            request: TransferRequest,
+            onProgress: suspend (downloadedBytes: Long) -> Unit,
+        ): TransferResult {
+            Files.write(request.destination, byteArrayOf(1, 2, 3, 4))
+            onProgress(4)
+            throw IOException("simulated network interruption")
+        }
+    }
+    val interruptedRunner = DirectDownloadRunner(
+        repository = interruptedRepo,
+        transferEngine = interruptedEngine,
+        tempPathProvider = DownloadTempPathProvider { _, _ -> interruptedPath },
+    )
+    check(runCatching { runSuspendRunner { interruptedRunner.run(interruptedId) } }.isFailure)
+    check(interruptedRepo.current.state == DownloadState.RETRY_PENDING)
+    check(interruptedRepo.current.downloadedBytes == 4L)
+    check(interruptedRepo.current.retryCount == 1)
+    check(Files.size(interruptedPath) == 4L)
 
     println("DirectDownloadRunnerTest: PASS")
 }

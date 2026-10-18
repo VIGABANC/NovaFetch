@@ -90,6 +90,12 @@ class UrlConnectionTransferEngine(
                     }
                 }
             }
+            val expectedBodyBytes = connection.getHeaderFieldLong("Content-Length", -1L)
+                .takeIf { it >= 0L }
+                ?: capability.contentLength?.minus(if (resume) request.resumeOffset else 0L)
+            if (expectedBodyBytes != null && bodyBytes != expectedBodyBytes) {
+                throw IncompleteTransferException(expectedBodyBytes, bodyBytes)
+            }
             TransferResult.Completed(
                 bytesWritten = bodyBytes,
                 totalBytes = capability.contentLength,
@@ -147,3 +153,6 @@ class UrlConnectionTransferEngine(
 }
 
 class InvalidContentRangeException : java.io.IOException("Server returned an invalid byte range")
+
+class IncompleteTransferException(expectedBytes: Long, receivedBytes: Long) :
+    java.io.IOException("Transfer ended after $receivedBytes of $expectedBytes expected bytes")

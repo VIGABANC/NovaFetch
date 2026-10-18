@@ -23,6 +23,27 @@ class AndroidInstrumentationContractTest(unittest.TestCase):
         self.assertIn('Room.inMemoryDatabaseBuilder', source)
         self.assertIn('DownloadJobEntity', source)
         self.assertIn('MediaItemEntity', source)
+        self.assertIn('interruptedDownloadRecoversAfterDatabaseReopen', source)
+
+    def test_browser_e2e_covers_direct_download_to_offline_playback(self):
+        source = read('app/src/androidTest/kotlin/app/novafetch/BrowserDirectMediaE2eTest.kt')
+        for token in [
+            'Detected media', 'onNodeWithText("Pause")', 'onNodeWithText("Resume")',
+            'MediaStore content must match', 'getByDownloadId', 'assertOfflinePlayback',
+        ]:
+            self.assertIn(token, source)
+
+    def test_github_actions_runs_android_emulator_and_uploads_abi_apks(self):
+        workflow = read('.github/workflows/android-ci.yml')
+        for token in [
+            'reactivecircus/android-emulator-runner@v2',
+            'api-level: 36',
+            'bash tools/verify-android-runtime.sh',
+            'actions/upload-artifact@v4',
+            'app-arm64-v8a-debug.apk',
+            'app-x86_64-debug.apk',
+        ]:
+            self.assertIn(token, workflow)
 
     def test_library_module_has_real_mediastore_instrumentation_test(self):
         path = ROOT / 'library/src/androidTest/kotlin/app/novafetch/library/AndroidSharedMediaStoreInstrumentedTest.kt'

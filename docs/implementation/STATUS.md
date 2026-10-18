@@ -49,3 +49,23 @@
 - Build and portable checks pass. The direct media vertical slice still needs Android runtime verification (including process recovery, MediaStore finalization, library listing, and offline playback) on a device/emulator.
 - HLS/DASH playback/download completion, broader browser privacy requirements, and full release/readiness work remain incomplete. No release APK is signed; signing secrets are not present or committed.
 - Do not push or merge without checking gates and user authorization.
+
+## 2026-10-18 — CI emulator path, ABI outputs, and direct-media failures
+
+- Published branch `codex/android-build-foundation` to GitHub and opened draft PR #1 against `main`: `https://github.com/VIGABANC/NovaFetch/pull/1`. It remains unmerged.
+- Added `.github/workflows/android-ci.yml`: builds with JDK 21 and API 36, runs Node/Python tests, uploads ABI debug APKs, then uses `reactivecircus/android-emulator-runner` to execute `tools/verify-android-runtime.sh` on an API 36 x86_64 Google APIs emulator. GitHub-hosted Ubuntu runners provide the emulator virtualization path; the local workspace still has no `/dev/kvm`.
+- ABI splits retain `armeabi-v7a`, `arm64-v8a`, `x86_64`, and the universal APK. A fresh `:app:assembleDebug` produced APKs of about 184 MB (ARMv7), 220 MB (arm64), 239 MB (x86_64), and 536 MB (universal). APK listing attributes most size to GeckoView `libxul.so` (117–165 MB per ABI); the universal package combines the three libraries. No duplicate ABI libraries were found within one split.
+- Added `tools/test_apk_abi_splits.py`; it fails without split outputs and passes after assembling the configured APKs.
+- Expanded the Android browser instrumentation test to use Compose UI controls, detect the local fixture MP4, start a download, pause/resume during a deliberately slow response, compare MediaStore bytes with the fixture, find it in Library, open the player, and verify ExoPlayer playback from the local MediaStore URI.
+- Added a Room instrumentation recovery test that closes and reopens the on-disk database, then verifies an interrupted job's checkpoint and ETag survive and the coordinator reschedules recovery. This is a simulated process restart, not an OS process-kill test.
+- The transfer engine now rejects a cleanly truncated HTTP body when it does not match Content-Length. The deterministic server drops one transfer after sending a partial body; the direct-transfer smoke test resumes it with Range and verifies exact bytes.
+- Direct transfer failures now persist `RETRY_PENDING` and a retry count, fail after the configured retry bound, and WorkManager maps recoverable I/O errors to `Result.retry()`.
+- Media finalization now returns the completed snapshot on repeated calls. `MediaFinalizerTest` verifies the second call creates no additional media row or publish operation.
+- The API 36 local Android build and Android instrumentation compilation pass after these changes; `:app:assembleDebugAndroidTest` packages the fixture asset. The hosted emulator workflow has not yet run, so no Android runtime test is marked PASS.
+- Current test evidence: `python3 -m unittest discover -s tools -p 'test*.py' -q` — PASS, 27 tests; Node media detector — PASS, 11/11; direct-transfer and finalizer smoke harnesses — PASS; ABI output test — PASS.
+
+### Current gate
+
+- Wait for GitHub Actions to execute the API 36 emulator job. Only a passing run can verify the on-device browser → download → pause/resume → MediaStore → Library → playback sequence.
+- The current CI matrix is limited to the deterministic local HTML5 fixture. YouTube, Pornhub, Vimeo, Dailymotion, Reddit, TikTok, Internet Archive, and generic-site compatibility need separate permitted-content coverage.
+- HLS/DASH downloading and processing, real OS-level process-kill recovery validation, broader site privacy controls, and release readiness remain incomplete. No release APK is signed; signing secrets are not present or committed.

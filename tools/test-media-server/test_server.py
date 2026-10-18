@@ -70,6 +70,17 @@ class MediaServerTest(unittest.TestCase):
         self.assertEqual("video/mp4", headers["Content-Type"])
         self.assertEqual((Path(__file__).with_name("fixtures") / "playable.mp4").read_bytes(), body)
 
+    def test_playable_fixture_can_be_slow_and_still_support_ranges(self):
+        self.assertEqual(204, self.request("/control/slow-playable?enabled=1")[0])
+        try:
+            status, headers, body = self.request("/playable.mp4", {"Range": "bytes=0-9"})
+            fixture = (Path(__file__).with_name("fixtures") / "playable.mp4").read_bytes()
+            self.assertEqual(206, status)
+            self.assertEqual(f"bytes 0-9/{len(fixture)}", headers["Content-Range"])
+            self.assertEqual(fixture[:10], body)
+        finally:
+            self.assertEqual(204, self.request("/control/slow-playable?enabled=0")[0])
+
     def test_expired_url_requires_fresh_token(self):
         status, _, _ = self.request("/expired-url")
         self.assertEqual(403, status)

@@ -4,6 +4,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 import re
+import time
 
 FIXTURE = Path(__file__).with_name("fixtures") / "direct.mp4"
 PLAYABLE_FIXTURE = Path(__file__).with_name("fixtures") / "playable.mp4"
@@ -39,6 +40,13 @@ class MediaRequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        if path == "/control/slow-playable":
+            enabled = parse_qs(parsed.query).get("enabled", ["0"])[0]
+            self.server.slow_playable = enabled == "1"
+            self.send_response(204)
+            self.end_headers()
+            return
+
         if path == "/disconnect-mid-download":
             data = FIXTURE.read_bytes()
             halfway = len(data) // 2
@@ -49,6 +57,27 @@ class MediaRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(data[:halfway])
             self.wfile.flush()
             self.close_connection = True
+            return
+
+        if path == "/disconnect-once.mp4":
+            data = FIXTURE.read_bytes()
+            range_header = self.headers.get("Range")
+            if range_header:
+                self._send_range(data, range_header)
+            elif not self.server.disconnected_once:
+                self.server.disconnected_once = True
+                halfway = len(data) // 2
+                self.send_response(200)
+                self.send_header("Content-Type", "video/mp4")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Accept-Ranges", "bytes")
+                self.send_header("ETag", self._etag())
+                self.end_headers()
+                self.wfile.write(data[:halfway])
+                self.wfile.flush()
+                self.close_connection = True
+            else:
+                self._send_full(data, advertise_range=True)
             return
 
         if path == "/expired-url":
@@ -84,7 +113,11 @@ class MediaRequestHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/playable.mp4":
-            self._send_full(PLAYABLE_FIXTURE.read_bytes(), advertise_range=True)
+            data = PLAYABLE_FIXTURE.read_bytes()
+            if self.server.slow_playable:
+                self._send_slow_playable(data)
+            else:
+                self._send_full(data, advertise_range=True)
             return
 
         if path == "/range.mp4":
@@ -155,10 +188,41 @@ class MediaRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _send_slow_playable(self, data: bytes):
+        range_header = self.headers.get("Range")
+        if range_header:
+            match = _RANGE_RE.match(range_header)
+            if not match:
+                self.send_error(416)
+                return
+            start = int(match.group(1))
+            end = int(match.group(2)) if match.group(2) else len(data) - 1
+            if start >= len(data) or start > end:
+                self.send_error(416)
+                return
+            end = min(end, len(data) - 1)
+            body = data[start : end + 1]
+            self.send_response(206)
+            self.send_header("Content-Range", f"bytes {start}-{end}/{len(data)}")
+        else:
+            body = data
+            self.send_response(200)
+        self.send_header("Content-Type", "video/mp4")
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("ETag", self._etag())
+        self.end_headers()
+        for offset in range(0, len(body), 512):
+            self.wfile.write(body[offset : offset + 512])
+            self.wfile.flush()
+            time.sleep(0.25)
+
 
 def create_server(host: str = "127.0.0.1", port: int = 0) -> ThreadingHTTPServer:
     httpd = ThreadingHTTPServer((host, port), MediaRequestHandler)
     httpd.etag_value = "fixture-v1"
+    httpd.disconnected_once = False
+    httpd.slow_playable = False
     return httpd
 
 

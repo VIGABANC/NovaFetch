@@ -43,6 +43,27 @@ fun main() {
     check(!directResult.supportsResume)
     check(Files.readAllBytes(direct).contentEquals(expected))
 
+    // A mid-stream disconnect keeps a partial and can resume safely with the same ETag.
+    val interrupted = dir.resolve("interrupted.mp4")
+    val firstAttempt = runCatching {
+        runSuspend { engine.transfer(TransferRequest("$base/disconnect-once.mp4", interrupted)) { } }
+    }
+    check(firstAttempt.isFailure)
+    val interruptedBytes = Files.size(interrupted)
+    check(interruptedBytes in 1 until expected.size.toLong())
+    val recovered = runSuspend {
+        engine.transfer(
+            TransferRequest(
+                url = "$base/disconnect-once.mp4",
+                destination = interrupted,
+                resumeOffset = interruptedBytes,
+                etag = "\"fixture-v1\"",
+            ),
+        ) { }
+    }
+    check(recovered is TransferResult.Completed && recovered.resumed)
+    check(Files.readAllBytes(interrupted).contentEquals(expected))
+
     // Safe byte-range resume.
     val resume = dir.resolve("resume.mp4")
     val split = 10_000

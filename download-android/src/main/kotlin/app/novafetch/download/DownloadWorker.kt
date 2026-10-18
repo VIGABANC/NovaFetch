@@ -6,6 +6,8 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import app.novafetch.common.DownloadId
+import java.io.IOException
+import java.util.concurrent.CancellationException
 
 class DownloadWorker(
     appContext: Context,
@@ -15,10 +17,16 @@ class DownloadWorker(
         val rawId = inputData.getString(KEY_DOWNLOAD_ID) ?: return Result.failure()
         setForeground(createForegroundInfo(rawId))
         val host = applicationContext as? DownloadExecutionHost ?: return Result.retry()
-        return when (host.executeDownload(DownloadId(rawId))) {
-            DownloadExecutionOutcome.COMPLETED -> Result.success()
-            DownloadExecutionOutcome.RETRY -> Result.retry()
-            DownloadExecutionOutcome.FAILED -> Result.failure()
+        return try {
+            when (host.executeDownload(DownloadId(rawId))) {
+                DownloadExecutionOutcome.COMPLETED -> Result.success()
+                DownloadExecutionOutcome.RETRY -> Result.retry()
+                DownloadExecutionOutcome.FAILED -> Result.failure()
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: IOException) {
+            if (runAttemptCount < MAX_DIRECT_TRANSFER_RETRIES) Result.retry() else Result.failure()
         }
     }
 
