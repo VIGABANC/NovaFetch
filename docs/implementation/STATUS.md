@@ -23,9 +23,25 @@
 - Retried `:common:test :download-core:test :media-resolver:test` after provisioning JDK 17 — BLOCKED before unit compilation because Android SDK `platforms;android-36` and `build-tools;36.0.0` licenses have not been accepted/installed.
 - `tools/verify-android-build.sh` and device runtime verification have not passed. No APK is claimed.
 
+## 2026-10-18 — Android build and direct transfer hardening
+
+- The user authorized continuing after the SDK license prompt. Android SDK licenses were accepted; `platforms;android-36`, `build-tools;36.0.0`, and platform tools are installed.
+- Resolved Android source compile failures in media candidate validation, GeckoView extension nullability, foreground service imports, Room runtime exposure, and direct download filename display.
+- Pinned Compose 1.11.0, Activity Compose 1.12.4, Material 3 1.3.2, WorkManager 2.10.5, and GeckoView 152.0.20260713164047 so the dependency graph meets the repository's planned compileSdk 36. Newer selected artifacts required API 37.1; compileSdk remains 36 per the repository plans.
+- Added Room schema export output at `data/schemas/app.novafetch.data.NovaFetchDatabase/1.json`.
+- Direct resume now validates a `206` response's Content-Range start/end/total, known total length, body length, and response validator before opening the partial file for append. A malformed range fixture proves the partial file remains unchanged.
+- `bash tools/verify-android-build.sh` — PASS, `BUILD SUCCESSFUL`; debug APK generated at `app/build/outputs/apk/debug/app-debug.apk` (approximately 536 MB, includes GeckoView native libraries).
+- `node --test tools/media-detector-tests/*.test.cjs` — PASS, 11/11.
+- `python3 -m unittest discover -s tools/test-media-server -p 'test*.py' -q` — PASS, 11/11.
+- `bash tools/run-hls-parser-smoke.sh` — PASS.
+- `bash tools/run-generic-core-smoke.sh` — PASS (MediaCatalogTest, UrlPolicyTest, media detector 11/11).
+- `bash tools/run-task5-core-smoke.sh` — PASS (DownloadCoordinatorTest).
+- `bash tools/run-direct-runner-smoke.sh` — PASS (DirectDownloadRunnerTest and UrlConnectionTransferEngineTest, including safe resume, restart-on-ignored-Range, changed ETag, and malformed Content-Range).
+- Gradle `:common:test` still reports no tests discovered because these existing tests are portable `main()` harnesses rather than JUnit tests; this is not recorded as a passing Gradle unit-test suite.
+- `adb` is unavailable in the execution environment. No emulator/device runtime test has been performed; the app is built but not installed or exercised on Android.
+
 ### Current gate
 
-- User approval is pending to accept Google's Android SDK License Agreement. Until accepted, SDK platform/build-tools and the Android build remain blocked.
-- After license setup: install API 36 and Build Tools 36.0.0; rerun `tools/verify-android-build.sh`; fix actual compile errors test-first; run portable checks again.
-- Device/emulator runtime and the full Browser → Download → MediaStore → Library → offline playback flow remain unverified.
+- Build and portable checks pass. The direct media vertical slice still needs Android runtime verification (including process recovery, MediaStore finalization, library listing, and offline playback) on a device/emulator.
+- HLS/DASH playback/download completion, broader browser privacy requirements, and full release/readiness work remain incomplete. No release APK is signed; signing secrets are not present or committed.
 - Do not push or merge without checking gates and user authorization.

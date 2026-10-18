@@ -100,6 +100,25 @@ class MediaRequestHandler(BaseHTTPRequestHandler):
                 self._send_full(data, advertise_range=True)
             return
 
+        if path == "/wrong-range.mp4":
+            data = FIXTURE.read_bytes()
+            range_header = self.headers.get("Range")
+            match = _RANGE_RE.match(range_header or "")
+            if not match:
+                self.send_error(416)
+                return
+            start = int(match.group(1))
+            end = len(data) - 1
+            body = data[start : end + 1]
+            self.send_response(206)
+            self.send_header("Content-Type", "video/mp4")
+            self.send_header("Content-Range", f"bytes {start + 1}-{end}/{len(data)}")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("ETag", self._etag())
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
         self.send_error(404)
 
     def _etag(self) -> str:

@@ -17,7 +17,8 @@ class CandidateValidator {
             ?: return ValidationResult.Rejected("invalid source page")
         val url = UrlPolicy.canonicalize(candidate.resourceUrl)
             ?: return ValidationResult.Rejected("invalid media URL")
-        if (candidate.frameUrl != null && UrlPolicy.canonicalize(candidate.frameUrl) == null)
+        val frameUrl = candidate.frameUrl
+        if (frameUrl != null && UrlPolicy.canonicalize(frameUrl) == null)
             return ValidationResult.Rejected("invalid frame URL")
         val mime = candidate.mimeType.orEmpty().substringBefore(';').trim().lowercase()
         val ext = URI(url).path.substringAfterLast('.', "").lowercase()
@@ -34,7 +35,8 @@ class CandidateValidator {
             DiscoveryMethod.DIRECT_LINK -> 75
             DiscoveryMethod.METADATA -> 45
         }
-        val sizePenalty = if (candidate.estimatedBytes != null && candidate.estimatedBytes < 128_000) 35 else 0
+        val estimatedBytes = candidate.estimatedBytes
+        val sizePenalty = if (estimatedBytes != null && estimatedBytes < 128_000) 35 else 0
         return ValidationResult.Accepted(ValidatedCandidate(candidate.copy(pageUrl = page), url, (base - sizePenalty).coerceIn(0, 100)))
     }
 }

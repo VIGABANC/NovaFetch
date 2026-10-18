@@ -1,7 +1,7 @@
 package app.novafetch.download
 
-import android.app.ServiceInfo
 import android.content.Context
+import android.content.pm.ServiceInfo
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters

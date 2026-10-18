@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.novafetch.download.DownloadPlan
 import app.novafetch.download.DownloadSnapshot
 
 @Composable
@@ -42,9 +43,12 @@ fun DownloadsScreen(
                 val progress = if (total != null && total > 0L) {
                     (job.downloadedBytes.toFloat() / total.toFloat()).coerceIn(0f, 1f)
                 } else null
+                val displayName = when (val plan = job.plan) {
+                    is DownloadPlan.DirectPlan -> plan.suggestedFileName
+                }
                 Column {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(job.plan.suggestedFileName)
+                        Text(displayName)
                         Text(job.state.name)
                     }
                     if (progress != null) LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())

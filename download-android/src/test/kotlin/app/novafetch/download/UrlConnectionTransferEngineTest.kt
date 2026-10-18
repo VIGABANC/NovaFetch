@@ -61,6 +61,24 @@ fun main() {
     check(resumeResult.supportsResume)
     check(Files.readAllBytes(resume).contentEquals(expected))
 
+    // A malformed 206 response must be rejected before appending any response bytes.
+    val malformedRange = dir.resolve("malformed-range.mp4")
+    Files.write(malformedRange, expected.copyOfRange(0, split))
+    val malformedResult = runCatching {
+        runSuspend {
+            engine.transfer(
+                TransferRequest(
+                    url = "$base/wrong-range.mp4",
+                    destination = malformedRange,
+                    resumeOffset = split.toLong(),
+                    etag = "\"fixture-v1\"",
+                ),
+            ) { }
+        }
+    }
+    check(malformedResult.isFailure)
+    check(Files.size(malformedRange) == split.toLong())
+
     // Server that ignores Range must safely restart, never append duplicate bytes.
     val noRange = dir.resolve("no-range.mp4")
     Files.write(noRange, expected.copyOfRange(0, split))

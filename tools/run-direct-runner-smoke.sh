@@ -38,3 +38,15 @@ kotlinc \
 TEST_MEDIA_BASE_URL=http://127.0.0.1:8765 \
 TEST_MEDIA_FIXTURE="$ROOT/tools/test-media-server/fixtures/direct.mp4" \
 java -jar "$OUT/direct-runner-test.jar"
+kotlinc \
+  "$ROOT/download-core/src/main/kotlin/app/novafetch/download/TransferRequest.kt" \
+  "$ROOT/download-core/src/main/kotlin/app/novafetch/download/TransferResult.kt" \
+  "$ROOT/download-core/src/main/kotlin/app/novafetch/download/TransferEngine.kt" \
+  "$ROOT/download-core/src/main/kotlin/app/novafetch/download/RangeProbe.kt" \
+  "$ROOT/download-android/src/main/kotlin/app/novafetch/download/UrlConnectionRangeProbe.kt" \
+  "$ROOT/download-android/src/main/kotlin/app/novafetch/download/UrlConnectionTransferEngine.kt" \
+  "$ROOT/download-android/src/test/kotlin/app/novafetch/download/UrlConnectionTransferEngineTest.kt" \
+  -include-runtime -d "$OUT/direct-transfer-test.jar"
+TEST_MEDIA_BASE_URL=http://127.0.0.1:8765 \
+TEST_MEDIA_FIXTURE="$ROOT/tools/test-media-server/fixtures/direct.mp4" \
+java -jar "$OUT/direct-transfer-test.jar"

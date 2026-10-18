@@ -48,6 +48,28 @@ class UrlConnectionTransferEngine(
                 throw HttpStatusException(status, request.url)
             }
 
+            if (resume) {
+                val contentRange = parseContentRange(connection.getHeaderField("Content-Range"))
+                    ?: throw InvalidContentRangeException()
+                if (contentRange.start != request.resumeOffset ||
+                    (capability.contentLength != null && contentRange.total != capability.contentLength) ||
+                    contentRange.end != contentRange.total - 1
+                ) {
+                    throw InvalidContentRangeException()
+                }
+                val responseEtag = connection.getHeaderField("ETag")
+                val responseModified = connection.getHeaderField("Last-Modified")
+                if ((request.etag != null && responseEtag != request.etag) ||
+                    (request.etag == null && request.lastModified != null && responseModified != request.lastModified)
+                ) {
+                    return TransferResult.SourceChanged(responseEtag, responseModified)
+                }
+                val responseLength = connection.getHeaderFieldLong("Content-Length", -1L)
+                if (responseLength >= 0 && responseLength != contentRange.end - contentRange.start + 1) {
+                    throw InvalidContentRangeException()
+                }
+            }
+
             val options = if (resume) {
                 arrayOf(StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.APPEND)
             } else {
@@ -93,10 +115,25 @@ class UrlConnectionTransferEngine(
     }
 
     private fun sourceChanged(request: TransferRequest, capability: RangeCapability): Boolean {
-        val etagChanged = request.etag != null && capability.etag != null && request.etag != capability.etag
-        val modifiedChanged = request.lastModified != null && capability.lastModified != null &&
+        val etagChanged = request.etag != null && request.etag != capability.etag
+        val modifiedChanged = request.etag == null && request.lastModified != null &&
             request.lastModified != capability.lastModified
         return etagChanged || modifiedChanged
+    }
+
+    private fun parseContentRange(value: String?): ByteRange? {
+        val match = CONTENT_RANGE.matchEntire(value ?: return null) ?: return null
+        val start = match.groupValues[1].toLongOrNull() ?: return null
+        val end = match.groupValues[2].toLongOrNull() ?: return null
+        val total = match.groupValues[3].toLongOrNull() ?: return null
+        if (start > end || end >= total) return null
+        return ByteRange(start, end, total)
+    }
+
+    private data class ByteRange(val start: Long, val end: Long, val total: Long)
+
+    private companion object {
+        val CONTENT_RANGE = Regex("bytes (\\d+)-(\\d+)/(\\d+)")
     }
 
     private fun open(request: TransferRequest): HttpURLConnection =
@@ -108,3 +145,5 @@ class UrlConnectionTransferEngine(
             request.headers.forEach { (name, value) -> setRequestProperty(name, value) }
         }
 }
+
+class InvalidContentRangeException : java.io.IOException("Server returned an invalid byte range")
