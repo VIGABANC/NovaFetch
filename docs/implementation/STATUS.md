@@ -41,7 +41,7 @@
 - Downloads screen now exposes Pause for queued/active/waiting/retry jobs and Resume for paused jobs. The runner checkpoints the last received bytes without overwriting a pause, and stops the canceled transfer; `run-direct-runner-smoke.sh` covers this pause race.
 - After the pause/resume UI and runner changes, `bash tools/verify-android-build.sh` — PASS, `BUILD SUCCESSFUL`.
 - Gradle `:common:test` still reports no tests discovered because these existing tests are portable `main()` harnesses rather than JUnit tests; this is not recorded as a passing Gradle unit-test suite.
-- `adb` is unavailable in the execution environment. No emulator/device runtime test has been performed; the app is built but not installed or exercised on Android.
+- `adb devices -l` runs but reports no connected target; the Android Emulator package is not installed and `/dev/kvm` is unavailable. No device/emulator runtime test has been performed; the app is built but not installed or exercised on Android.
 
 ### Current gate
 
