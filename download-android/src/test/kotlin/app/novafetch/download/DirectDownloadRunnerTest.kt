@@ -4,6 +4,7 @@ import app.novafetch.common.DownloadId
 import app.novafetch.common.DownloadState
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.CancellationException
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.coroutines.startCoroutine
@@ -112,6 +113,38 @@ fun main() {
     check(resumed.downloadedBytes == expected.size.toLong())
     check(Files.readAllBytes(partialPath).contentEquals(expected))
     check(resumeRepo.history.any { it.state == DownloadState.DOWNLOADING && it.downloadedBytes == split.toLong() })
+
+    // A pause requested while bytes are streaming must checkpoint without restoring DOWNLOADING.
+    val pausedId = DownloadId("runner-paused-job")
+    val pausedRepo = RunnerRepository(
+        DownloadSnapshot(
+            id = pausedId,
+            plan = DownloadPlan.DirectPlan("https://example.invalid/file.mp4", "video/mp4", "file.mp4"),
+            state = DownloadState.QUEUED,
+        ),
+    )
+    val pausedPath = tempDir.resolve("paused-file.mp4.part")
+    val pauseAwareEngine = object : TransferEngine {
+        override suspend fun transfer(
+            request: TransferRequest,
+            onProgress: suspend (downloadedBytes: Long) -> Unit,
+        ): TransferResult {
+            Files.write(request.destination, byteArrayOf(1, 2, 3, 4))
+            pausedRepo.update(requireNotNull(pausedRepo.get(pausedId)).copy(state = DownloadState.PAUSED))
+            onProgress(4)
+            error("paused transfer should stop before completion")
+        }
+    }
+    val pausedRunner = DirectDownloadRunner(
+        repository = pausedRepo,
+        transferEngine = pauseAwareEngine,
+        tempPathProvider = DownloadTempPathProvider { _, _ -> pausedPath },
+    )
+    val pauseResult = runCatching { runSuspendRunner { pausedRunner.run(pausedId) } }
+    check(pauseResult.exceptionOrNull() is CancellationException)
+    check(pausedRepo.current.state == DownloadState.PAUSED)
+    check(pausedRepo.current.downloadedBytes == 4L)
+    check(Files.size(pausedPath) == pausedRepo.current.downloadedBytes)
 
     println("DirectDownloadRunnerTest: PASS")
 }

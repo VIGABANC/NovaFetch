@@ -37,6 +37,9 @@
 - `bash tools/run-generic-core-smoke.sh` — PASS (MediaCatalogTest, UrlPolicyTest, media detector 11/11).
 - `bash tools/run-task5-core-smoke.sh` — PASS (DownloadCoordinatorTest).
 - `bash tools/run-direct-runner-smoke.sh` — PASS (DirectDownloadRunnerTest and UrlConnectionTransferEngineTest, including safe resume, restart-on-ignored-Range, changed ETag, and malformed Content-Range).
+- `tools/test_task8_android_app_contract.py` now asserts that downloads expose pause/resume actions and route them to the coordinator; `python3 -m unittest discover -s tools -p 'test*.py' -q` — PASS, 23 tests.
+- Downloads screen now exposes Pause for queued/active/waiting/retry jobs and Resume for paused jobs. The runner checkpoints the last received bytes without overwriting a pause, and stops the canceled transfer; `run-direct-runner-smoke.sh` covers this pause race.
+- After the pause/resume UI and runner changes, `bash tools/verify-android-build.sh` — PASS, `BUILD SUCCESSFUL`.
 - Gradle `:common:test` still reports no tests discovered because these existing tests are portable `main()` harnesses rather than JUnit tests; this is not recorded as a passing Gradle unit-test suite.
 - `adb` is unavailable in the execution environment. No emulator/device runtime test has been performed; the app is built but not installed or exercised on Android.
 

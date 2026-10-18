@@ -47,5 +47,15 @@ class AndroidAppContractTest(unittest.TestCase):
         self.assertIn('@Composable', read('app/src/main/kotlin/app/novafetch/LibraryScreen.kt'))
         self.assertIn('setContent', read('app/src/main/kotlin/app/novafetch/MainActivity.kt'))
 
+    def test_download_list_exposes_pause_and_resume_actions(self):
+        downloads = read('app/src/main/kotlin/app/novafetch/DownloadsScreen.kt')
+        activity = read('app/src/main/kotlin/app/novafetch/MainActivity.kt')
+        self.assertIn('onPause: (DownloadId) -> Unit', downloads)
+        self.assertIn('onResume: (DownloadId) -> Unit', downloads)
+        self.assertIn('Text("Pause")', downloads)
+        self.assertIn('Text("Resume")', downloads)
+        self.assertIn('graph.coordinator.pause(id)', activity)
+        self.assertIn('graph.coordinator.resume(id)', activity)
+
 if __name__ == '__main__':
     unittest.main()

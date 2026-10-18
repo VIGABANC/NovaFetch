@@ -94,6 +94,18 @@ private fun NovaFetchRoot(graph: AppGraph) {
                 RootTab.DOWNLOADS -> DownloadsScreen(
                     url = directUrl,
                     onUrlChange = { directUrl = it; error = null },
+                    onPause = { id ->
+                        scope.launch {
+                            runCatching { graph.coordinator.pause(id) }
+                                .onFailure { error = it.message ?: "Unable to pause download" }
+                        }
+                    },
+                    onResume = { id ->
+                        scope.launch {
+                            runCatching { graph.coordinator.resume(id) }
+                                .onFailure { error = it.message ?: "Unable to resume download" }
+                        }
+                    },
                     onDownload = {
                         scope.launch {
                             runCatching { graph.enqueueDirect(directUrl) }

@@ -14,6 +14,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.novafetch.common.DownloadId
+import app.novafetch.common.DownloadState
 import app.novafetch.download.DownloadPlan
 import app.novafetch.download.DownloadSnapshot
 
@@ -22,6 +24,8 @@ fun DownloadsScreen(
     url: String,
     onUrlChange: (String) -> Unit,
     onDownload: () -> Unit,
+    onPause: (DownloadId) -> Unit,
+    onResume: (DownloadId) -> Unit,
     jobs: List<DownloadSnapshot>,
     modifier: Modifier = Modifier,
 ) {
@@ -53,6 +57,18 @@ fun DownloadsScreen(
                     }
                     if (progress != null) LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
                     Text("${job.downloadedBytes} bytes")
+                    when (job.state) {
+                        DownloadState.QUEUED,
+                        DownloadState.CONNECTING,
+                        DownloadState.DOWNLOADING,
+                        DownloadState.WAITING_NETWORK,
+                        DownloadState.WAITING_STORAGE,
+                        DownloadState.RETRY_PENDING,
+                        -> Button(onClick = { onPause(job.id) }) { Text("Pause") }
+
+                        DownloadState.PAUSED -> Button(onClick = { onResume(job.id) }) { Text("Resume") }
+                        else -> Unit
+                    }
                 }
             }
         }

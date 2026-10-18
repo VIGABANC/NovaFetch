@@ -4,6 +4,7 @@ import app.novafetch.common.DownloadId
 import app.novafetch.common.DownloadState
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.CancellationException
 
 class DirectDownloadRunner(
     private val repository: DownloadRepository,
@@ -40,13 +41,30 @@ class DirectDownloadRunner(
                 lastModified = snapshot.lastModified,
             ),
         ) { downloadedBytes ->
-            snapshot = snapshot.copy(
-                state = DownloadState.DOWNLOADING,
+            val persisted = requireNotNull(repository.get(id)) { "download disappeared: ${id.value}" }
+            if (persisted.state == DownloadState.PAUSED) {
+                snapshot = persisted.copy(
+                    downloadedBytes = downloadedBytes,
+                    tempPath = destination.toString(),
+                )
+                repository.update(snapshot)
+            }
+            if (persisted.state != DownloadState.DOWNLOADING && persisted.state != DownloadState.PAUSED) {
+                throw CancellationException("download execution is no longer active")
+            }
+            if (persisted.state == DownloadState.PAUSED) {
+                throw CancellationException("download paused")
+            }
+            snapshot = persisted.copy(
                 downloadedBytes = downloadedBytes,
                 tempPath = destination.toString(),
             )
             repository.update(snapshot)
         }
+
+        val latest = requireNotNull(repository.get(id)) { "download disappeared: ${id.value}" }
+        if (latest.state != DownloadState.DOWNLOADING) return latest
+        snapshot = latest
 
         snapshot = when (result) {
             is TransferResult.Completed -> transition(snapshot, DownloadState.VERIFYING).copy(
