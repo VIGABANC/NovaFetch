@@ -20,6 +20,9 @@ interface DownloadDao {
     @Query("SELECT * FROM download_jobs WHERE id = :id LIMIT 1")
     fun observeJob(id: String): Flow<DownloadJobEntity?>
 
+    @Query("SELECT * FROM download_jobs ORDER BY createdAtEpochMs DESC")
+    fun observeAllJobs(): Flow<List<DownloadJobEntity>>
+
     @Query("SELECT * FROM download_jobs WHERE state NOT IN ('COMPLETED', 'FAILED', 'CANCELLED')")
     suspend fun unfinishedJobs(): List<DownloadJobEntity>
 
