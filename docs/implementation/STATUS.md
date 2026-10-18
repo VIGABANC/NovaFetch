@@ -17,6 +17,7 @@
 - `python3 -m unittest discover -s tools/test-media-server -p 'test*.py' -q` — PASS, 11/11.
 - `bash tools/run-hls-parser-smoke.sh` with Kotlin 2.4.20 on PATH — PASS (`HLS parser portable tests PASS`).
 - Initial `bash tools/verify-android-build.sh` before wrapper restoration — BLOCKED, exit 2: Gradle unavailable.
+- Post-wrapper `bash tools/verify-android-build.sh` with Gradle 9.6.0/JDK 21 — BLOCKED before compilation: API 36 platform and Build Tools licenses not accepted; no Android source compile has run.
 - Initial Gradle wrapper `:common:test :download-core:test :media-resolver:test` — FAIL. Existing `DownloadCoordinatorTest.kt` had an incomplete `Flow` test double; `common:test` also finds no JUnit-platform tests because current portable tests use `main()` entry points.
 - Fixed the test double to use `emptyFlow()` and updated the portable coroutine stub. RED: `:download-core:compileTestKotlin` failed with `ABSTRACT_MEMBER_NOT_IMPLEMENTED`; GREEN: `:download-core:compileTestKotlin` passed and `bash tools/run-task5-core-smoke.sh` printed `DownloadCoordinatorTest: PASS`.
 - Retried `:common:test :download-core:test :media-resolver:test` after provisioning JDK 17 — BLOCKED before unit compilation because Android SDK `platforms;android-36` and `build-tools;36.0.0` licenses have not been accepted/installed.
