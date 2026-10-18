@@ -58,18 +58,18 @@ class DownloadCoordinator(
                 DownloadState.WAITING_STORAGE,
                 DownloadState.CREATED,
                 DownloadState.RESOLVING,
-                DownloadState.VERIFYING,
-                DownloadState.PROCESSING,
-                DownloadState.FINALIZING -> Unit
+                DownloadState.PROCESSING -> Unit
 
                 DownloadState.QUEUED,
-                DownloadState.CONNECTING -> scheduler.schedule(current.id)
+                DownloadState.CONNECTING,
+                DownloadState.VERIFYING,
+                DownloadState.FINALIZING -> scheduler.scheduleRecovery(current.id)
 
                 DownloadState.DOWNLOADING,
                 DownloadState.WAITING_NETWORK,
                 DownloadState.RETRY_PENDING -> {
                     transition(current, DownloadState.CONNECTING)
-                    scheduler.schedule(current.id)
+                    scheduler.scheduleRecovery(current.id)
                 }
 
                 DownloadState.COMPLETED,

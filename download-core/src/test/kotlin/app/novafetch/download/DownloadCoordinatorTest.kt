@@ -27,8 +27,10 @@ private class FakeRepository(initial: List<DownloadSnapshot> = emptyList()) : Do
 
 private class FakeScheduler : DownloadScheduler {
     val scheduled = mutableListOf<DownloadId>()
+    val recoveryScheduled = mutableListOf<DownloadId>()
     val cancelled = mutableListOf<DownloadId>()
     override suspend fun schedule(id: DownloadId) { scheduled += id }
+    override suspend fun scheduleRecovery(id: DownloadId) { recoveryScheduled += id }
     override suspend fun cancel(id: DownloadId) { cancelled += id }
 }
 
@@ -61,9 +63,22 @@ fun main() {
         val coordinator = DownloadCoordinator(repo, scheduler, DownloadStateMachine()) { DownloadId("unused") }
         runSuspendCoordinator { coordinator.recoverInterrupted() }
         check(repo.jobs[interrupted.id]?.state == DownloadState.CONNECTING)
-        check(interrupted.id in scheduler.scheduled)
+        check(interrupted.id in scheduler.recoveryScheduled)
         check(repo.jobs[paused.id]?.state == DownloadState.PAUSED)
-        check(paused.id !in scheduler.scheduled)
+        check(paused.id !in scheduler.recoveryScheduled)
+    }
+
+    run {
+        val verifying = DownloadSnapshot(DownloadId("verifying"), plan, DownloadState.VERIFYING)
+        val finalizing = DownloadSnapshot(DownloadId("finalizing"), plan, DownloadState.FINALIZING)
+        val repo = FakeRepository(listOf(verifying, finalizing))
+        val scheduler = FakeScheduler()
+        val coordinator = DownloadCoordinator(repo, scheduler, DownloadStateMachine()) { DownloadId("unused") }
+        runSuspendCoordinator { coordinator.recoverInterrupted() }
+        check(verifying.id in scheduler.recoveryScheduled)
+        check(finalizing.id in scheduler.recoveryScheduled)
+        check(repo.jobs[verifying.id]?.state == DownloadState.VERIFYING)
+        check(repo.jobs[finalizing.id]?.state == DownloadState.FINALIZING)
     }
 
     run {
