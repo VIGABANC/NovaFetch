@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+OUT="$ROOT/build/smoke"
+mkdir -p "$OUT"
+SOURCES=(
+  "$ROOT/tools/kotlin-stubs/androidx/room/RoomStubs.kt"
+  "$ROOT/tools/kotlin-stubs/kotlinx/coroutines/flow/Flow.kt"
+  "$ROOT/common/src/main/kotlin/app/novafetch/common/DownloadId.kt"
+  "$ROOT/common/src/main/kotlin/app/novafetch/common/DownloadState.kt"
+  "$ROOT/download-core/src/main/kotlin/app/novafetch/download/DownloadPlan.kt"
+  "$ROOT/download-core/src/main/kotlin/app/novafetch/download/DownloadSnapshot.kt"
+  "$ROOT/download-core/src/main/kotlin/app/novafetch/download/DownloadRepository.kt"
+  "$ROOT/data/src/main/kotlin/app/novafetch/data/DownloadJobEntity.kt"
+  "$ROOT/data/src/main/kotlin/app/novafetch/data/DownloadPartEntity.kt"
+  "$ROOT/data/src/main/kotlin/app/novafetch/data/MediaItemEntity.kt"
+  "$ROOT/data/src/main/kotlin/app/novafetch/data/MediaLibraryDao.kt"
+  "$ROOT/data/src/main/kotlin/app/novafetch/data/DownloadDao.kt"
+  "$ROOT/data/src/main/kotlin/app/novafetch/data/NovaFetchDatabase.kt"
+  "$ROOT/data/src/main/kotlin/app/novafetch/data/DownloadEntityMapping.kt"
+  "$ROOT/data/src/main/kotlin/app/novafetch/data/RoomDownloadRepository.kt"
+)
+kotlinc "${SOURCES[@]}" "$ROOT/data/src/test/kotlin/app/novafetch/data/DownloadEntityMappingTest.kt" -include-runtime -d "$OUT/data-mapping.jar"
+java -jar "$OUT/data-mapping.jar"
+kotlinc "${SOURCES[@]}" "$ROOT/data/src/test/kotlin/app/novafetch/data/RoomDownloadRepositoryTest.kt" -include-runtime -d "$OUT/room-repo.jar"
+java -jar "$OUT/room-repo.jar"
