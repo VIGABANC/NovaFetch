@@ -14,6 +14,7 @@ import app.novafetch.library.FinalMediaMetadata
 import app.novafetch.library.MediaFinalizer
 import app.novafetch.library.MediaItem
 import app.novafetch.library.MediaLibraryRepository
+import app.novafetch.library.PendingMedia
 import app.novafetch.library.PublishedMedia
 import app.novafetch.library.SharedMediaPublisher
 import java.nio.file.Files
@@ -52,22 +53,32 @@ private class E2eLibraryRepository : MediaLibraryRepository {
 
 private class CopyingPublisher(private val finalDir: Path) : SharedMediaPublisher {
     val destinations = linkedMapOf<String, Path>()
+    private val byUri = linkedMapOf<String, Path>()
 
-    override suspend fun findPublished(jobId: DownloadId): PublishedMedia? =
-        destinations[jobId.value]?.let { PublishedMedia(it.toUri().toString()) }
-
-    override suspend fun publish(
-        jobId: DownloadId,
-        source: Path,
-        metadata: FinalMediaMetadata,
-    ): PublishedMedia {
+    override suspend fun prepare(jobId: DownloadId, metadata: FinalMediaMetadata): PendingMedia {
         Files.createDirectories(finalDir)
-        val destination = finalDir.resolve(metadata.displayName)
-        Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING)
+        val destination = finalDir.resolve("${jobId.value}-${metadata.displayName}")
+        val uri = destination.toUri().toString()
         destinations[jobId.value] = destination
-        return PublishedMedia(destination.toUri().toString())
+        byUri[uri] = destination
+        return PendingMedia(uri)
+    }
+
+    override suspend fun finish(pending: PendingMedia, source: Path): PublishedMedia {
+        val destination = checkNotNull(byUri[pending.uri])
+        Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING)
+        return PublishedMedia(pending.uri)
+    }
+
+    override suspend fun resume(uri: String, source: Path): PublishedMedia? {
+        val destination = byUri[uri] ?: return null
+        if (!Files.exists(destination)) {
+            Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING)
+        }
+        return PublishedMedia(uri)
     }
 }
+
 
 fun main() {
     val base = System.getenv("TEST_MEDIA_BASE_URL") ?: error("TEST_MEDIA_BASE_URL required")

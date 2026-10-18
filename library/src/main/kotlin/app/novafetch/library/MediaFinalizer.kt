@@ -20,40 +20,56 @@ class MediaFinalizer(
         val path = snapshot.tempPath?.let(Path::of)
             ?: return fail(snapshot, "TEMP_FILE_MISSING")
 
-        if (snapshot.state == DownloadState.FINALIZING) {
-            publisher.findPublished(id)?.let { published ->
-                upsertLibraryItem(snapshot, path, metadata, published)
-                snapshot = transition(snapshot, DownloadState.COMPLETED).copy(
-                    outputUri = published.uri,
-                    failureCode = null,
-                )
-                repository.update(snapshot)
-                return snapshot
-            }
-        } else {
-            require(snapshot.state == DownloadState.VERIFYING) {
-                "MediaFinalizer requires VERIFYING or FINALIZING, got ${snapshot.state}"
-            }
+        if (snapshot.state == DownloadState.VERIFYING) {
             when (val verification = verifier.verify(snapshot, path)) {
                 FileVerificationResult.Valid -> Unit
                 is FileVerificationResult.Invalid -> return fail(snapshot, verification.code)
             }
             snapshot = transition(snapshot, DownloadState.FINALIZING)
             repository.update(snapshot)
+        } else {
+            require(snapshot.state == DownloadState.FINALIZING) {
+                "MediaFinalizer requires VERIFYING or FINALIZING, got ${snapshot.state}"
+            }
         }
 
-        return try {
-            val published = publisher.findPublished(id) ?: publisher.publish(id, path, metadata)
-            upsertLibraryItem(snapshot, path, metadata, published)
-            snapshot = transition(snapshot, DownloadState.COMPLETED).copy(
-                outputUri = published.uri,
-                failureCode = null,
-            )
-            repository.update(snapshot)
-            snapshot
+        val published = try {
+            publishOrRecover(id, snapshot, path, metadata).also { result ->
+                // Persist the exact MediaStore URI before the final COMPLETED transition. This
+                // makes process-death recovery job-scoped instead of filename-scoped.
+                if (snapshot.outputUri != result.uri) {
+                    snapshot = snapshot.copy(outputUri = result.uri)
+                    repository.update(snapshot)
+                }
+            }
         } catch (_: Exception) {
-            fail(snapshot, "FINALIZE_FAILED")
+            return fail(snapshot, "FINALIZE_FAILED")
         }
+
+        upsertLibraryItem(snapshot, path, metadata, published)
+        snapshot = transition(snapshot, DownloadState.COMPLETED).copy(
+            outputUri = published.uri,
+            failureCode = null,
+        )
+        repository.update(snapshot)
+        return snapshot
+    }
+
+    private suspend fun publishOrRecover(
+        id: DownloadId,
+        snapshot: DownloadSnapshot,
+        path: Path,
+        metadata: FinalMediaMetadata,
+    ): PublishedMedia {
+        snapshot.outputUri?.let { persistedUri ->
+            publisher.resume(persistedUri, path)?.let { return it }
+        }
+
+        val pending = publisher.prepare(id, metadata)
+        // Store the pending destination immediately. A later recovery can address this exact URI
+        // even when another download has the same display name.
+        repository.update(snapshot.copy(outputUri = pending.uri))
+        return publisher.finish(pending, path)
     }
 
     private suspend fun upsertLibraryItem(

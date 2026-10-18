@@ -34,21 +34,26 @@ private class FinalizerRepository(initial: DownloadSnapshot) : DownloadRepositor
 
 private class FakeSharedMediaPublisher : SharedMediaPublisher {
     val published = linkedMapOf<String, PublishedMedia>()
-    var publishCalls = 0
+    var prepareCalls = 0
+    var finishCalls = 0
+    var resumeCalls = 0
 
-    override suspend fun findPublished(jobId: DownloadId): PublishedMedia? = published[jobId.value]
+    override suspend fun prepare(jobId: DownloadId, metadata: FinalMediaMetadata): PendingMedia {
+        prepareCalls += 1
+        return PendingMedia("content://media/${jobId.value}")
+    }
 
-    override suspend fun publish(
-        jobId: DownloadId,
-        source: Path,
-        metadata: FinalMediaMetadata,
-    ): PublishedMedia {
-        publishCalls += 1
-        return published.getOrPut(jobId.value) {
-            PublishedMedia("content://media/${jobId.value}")
-        }
+    override suspend fun finish(pending: PendingMedia, source: Path): PublishedMedia {
+        finishCalls += 1
+        return PublishedMedia(pending.uri).also { published[pending.uri] = it }
+    }
+
+    override suspend fun resume(uri: String, source: Path): PublishedMedia? {
+        resumeCalls += 1
+        return published[uri]
     }
 }
+
 
 
 private class FakeMediaLibraryRepository : MediaLibraryRepository {
@@ -69,6 +74,7 @@ private fun snapshotFor(
     path: Path,
     state: DownloadState = DownloadState.VERIFYING,
     totalBytes: Long = Files.size(path),
+    outputUri: String? = null,
 ): DownloadSnapshot = DownloadSnapshot(
     id = DownloadId(id),
     plan = DownloadPlan.DirectPlan("https://example.test/$id.mp4", "video/mp4", "$id.mp4"),
@@ -76,6 +82,7 @@ private fun snapshotFor(
     downloadedBytes = Files.size(path),
     totalBytes = totalBytes,
     tempPath = path.toString(),
+    outputUri = outputUri,
 )
 
 fun main() {
@@ -98,7 +105,8 @@ fun main() {
     check(completed.state == DownloadState.COMPLETED)
     check(completed.outputUri == "content://media/good")
     check(repo.history.any { it.state == DownloadState.FINALIZING })
-    check(publisher.publishCalls == 1)
+    check(publisher.prepareCalls == 1)
+    check(publisher.finishCalls == 1)
     val libraryItem = library.items.values.single()
     check(libraryItem.downloadId == DownloadId("good"))
     check(libraryItem.contentUri == "content://media/good")
@@ -118,12 +126,16 @@ fun main() {
     val failed = runSuspendFinalizer { badFinalizer.finalize(DownloadId("bad"), metadata) }
     check(failed.state == DownloadState.FAILED)
     check(failed.failureCode == "SIZE_MISMATCH")
-    check(badPublisher.publishCalls == 0)
+    check(badPublisher.prepareCalls == 0)
+    check(badPublisher.finishCalls == 0)
 
     // Crash-recovery path: file was already published but Room still says FINALIZING.
-    val recoveryRepo = FinalizerRepository(snapshotFor("recover", file, state = DownloadState.FINALIZING))
+    val recoveryUri = "content://media/recover"
+    val recoveryRepo = FinalizerRepository(
+        snapshotFor("recover", file, state = DownloadState.FINALIZING, outputUri = recoveryUri),
+    )
     val recoveryPublisher = FakeSharedMediaPublisher().apply {
-        published["recover"] = PublishedMedia("content://media/recover")
+        published[recoveryUri] = PublishedMedia(recoveryUri)
     }
     val recoveryLibrary = FakeMediaLibraryRepository()
     val recoveryFinalizer = MediaFinalizer(
@@ -132,7 +144,9 @@ fun main() {
     val recovered = runSuspendFinalizer { recoveryFinalizer.finalize(DownloadId("recover"), metadata) }
     check(recovered.state == DownloadState.COMPLETED)
     check(recovered.outputUri == "content://media/recover")
-    check(recoveryPublisher.publishCalls == 0)
+    check(recoveryPublisher.prepareCalls == 0)
+    check(recoveryPublisher.finishCalls == 0)
+    check(recoveryPublisher.resumeCalls == 1)
     check(recoveryLibrary.items.values.single().contentUri == "content://media/recover")
 
     println("MediaFinalizerTest: PASS")
