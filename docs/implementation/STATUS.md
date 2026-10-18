@@ -63,6 +63,7 @@
 - Media finalization now returns the completed snapshot on repeated calls. `MediaFinalizerTest` verifies the second call creates no additional media row or publish operation.
 - The API 36 local Android build and Android instrumentation compilation pass after these changes; `:app:assembleDebugAndroidTest` packages the fixture asset. The hosted emulator workflow has not yet run, so no Android runtime test is marked PASS.
 - Current test evidence: `python3 -m unittest discover -s tools -p 'test*.py' -q` — PASS, 27 tests; Node media detector — PASS, 11/11; direct-transfer and finalizer smoke harnesses — PASS; ABI output test — PASS.
+- First hosted workflow attempt (run 39172111933) — FAIL during Android SDK setup, before build or runtime tests. `setup-android` attempted to install the retired `tools` SDK package; workflow now requests only `platform-tools` before installing API 36 explicitly. No Android runtime result is available from this run.
 
 ### Current gate
 
